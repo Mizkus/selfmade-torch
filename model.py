@@ -16,45 +16,63 @@ class ConvNet:
     Flatten -> FC -> Softmax
     """
     def __init__(self, input_shape, n_output_classes, conv1_channels, conv2_channels):
-        """
-        Initializes the neural network
+        self.conv1 = ConvolutionalLayer(input_shape[2], conv1_channels, 3, padding=1)
+        self.relu1 = ReLULayer()
+        self.pool1 = MaxPoolingLayer(4, 4)
 
-        Arguments:
-        input_shape, tuple of 3 ints - image_width, image_height, n_channels
-                                         Will be equal to (32, 32, 3)
-        n_output_classes, int - number of classes to predict
-        conv1_channels, int - number of filters in the 1st conv layer
-        conv2_channels, int - number of filters in the 2nd conv layer
-        """
-        # TODO Create necessary layers
-        raise Exception("Not implemented!")
+        self.conv2 = ConvolutionalLayer(conv1_channels, conv2_channels, 3, padding=1)
+        self.relu2 = ReLULayer()
+        self.pool2 = MaxPoolingLayer(4, 4)
+
+        flatten_size = (input_shape[0] // 16) * (input_shape[1] // 16) * conv2_channels
+        self.flatten = Flattener()
+        self.fc = FullyConnectedLayer(flatten_size, n_output_classes)
+        self.softmax = softmax_with_cross_entropy
 
     def compute_loss_and_gradients(self, X, y):
-        """
-        Computes total loss and updates parameter gradients
-        on a batch of training examples
+        for param in self.params().values():
+            param.grad = np.zeros_like(param.value)
 
-        Arguments:
-        X, np array (batch_size, height, width, input_features) - input data
-        y, np array of int (batch_size) - classes
-        """
-        # Before running forward and backward pass through the model,
-        # clear parameter gradients aggregated from the previous pass
+        out = self.conv1.forward(X)
+        out = self.relu1.forward(out)
+        out = self.pool1.forward(out)
 
-        # TODO Compute loss and fill param gradients
-        # Don't worry about implementing L2 regularization, we will not
-        # need it in this assignment
-        raise Exception("Not implemented!")
+        out = self.conv2.forward(out)
+        out = self.relu2.forward(out)
+        out = self.pool2.forward(out)
+
+        out = self.flatten.forward(out)
+        out = self.fc.forward(out)
+        loss, grad = self.softmax(out, y)
+
+        grad = self.fc.backward(grad)
+        grad = self.flatten.backward(grad)
+        grad = self.pool2.backward(grad)
+        grad = self.relu2.backward(grad)
+        grad = self.conv2.backward(grad)
+        grad = self.pool1.backward(grad)
+        grad = self.relu1.backward(grad)
+        grad = self.conv1.backward(grad)
+
+        return loss
 
     def predict(self, X):
-        # You can probably copy the code from previous assignment
-        raise Exception("Not implemented!")
+        out = self.conv1.forward(X)
+        out = self.relu1.forward(out)
+        out = self.pool1.forward(out)
+
+        out = self.conv2.forward(out)
+        out = self.relu2.forward(out)
+        out = self.pool2.forward(out)
+
+        out = self.flatten.forward(out)
+        out = self.fc.forward(out)
+        return np.argmax(out, axis=1)
 
     def params(self):
         result = {}
-
-        # TODO: Aggregate all the params from all the layers
-        # which have parameters
-        raise Exception("Not implemented!")
-
+        layers = [self.conv1, self.conv2, self.fc]
+        for layer in layers:
+            for name, param in layer.params().items():
+                result[name] = param
         return result
